@@ -1,0 +1,480 @@
+/* ─── Stadium Map Container ───────────────────────────────────────── */
+.stadium-map-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.stadium-map-svg {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-xl);
+  overflow: visible;
+  filter: drop-shadow(0 8px 32px rgba(0,0,0,0.5));
+}
+
+/* ─── Map Legend ──────────────────────────────────────────────────── */
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── Zone Tooltip ────────────────────────────────────────────────── */
+.zone-tooltip {
+  position: absolute;
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  pointer-events: none;
+  z-index: 20;
+  min-width: 160px;
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.15s ease;
+}
+
+.zone-tooltip-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.zone-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.zone-tooltip-density {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  margin-top: 8px;
+}
+
+/* ─── Heatmap Color Scale ─────────────────────────────────────────── */
+.heatmap-scale {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+.heatmap-gradient {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg,
+    rgba(16,185,129,0.8) 0%,
+    rgba(245,158,11,0.8) 50%,
+    rgba(239,68,68,0.9) 100%
+  );
+}
+
+/* ─── Queue Card ──────────────────────────────────────────────────── */
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.queue-item:hover {
+  border-color: var(--border-medium);
+  background: rgba(17,24,39,0.9);
+  transform: translateX(3px);
+}
+
+.queue-item.alert-item {
+  border-color: rgba(239,68,68,0.3);
+  background: rgba(239,68,68,0.05);
+}
+
+.queue-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.queue-info { flex: 1; min-width: 0; }
+
+.queue-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.queue-wait {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── Chatbot ─────────────────────────────────────────────────────── */
+.chatbot-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 200;
+  width: 56px;
+  height: 56px;
+  background: var(--grad-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow-blue), var(--shadow-lg);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  border: none;
+  font-size: 1.4rem;
+  animation: glow-pulse 3s infinite;
+}
+
+.chatbot-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 40px rgba(59,130,246,0.6), var(--shadow-lg);
+}
+
+.chatbot-window {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  z-index: 200;
+  width: 360px;
+  max-height: 520px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideInUp 0.3s ease;
+}
+
+.chatbot-header {
+  background: var(--grad-primary);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.chatbot-avatar {
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.chatbot-title { font-weight: 700; font-size: 0.95rem; }
+.chatbot-status { font-size: 0.75rem; opacity: 0.8; }
+
+.chatbot-close {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  color: white;
+  font-size: 0.9rem;
+  transition: background var(--transition-fast);
+}
+.chatbot-close:hover { background: rgba(255,255,255,0.25); }
+
+.chatbot-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: slideInUp 0.25s ease;
+}
+
+.chat-msg.user { align-items: flex-end; }
+.chat-msg.bot  { align-items: flex-start; }
+
+.chat-bubble {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.chat-msg.user .chat-bubble {
+  background: var(--grad-primary);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-msg.bot .chat-bubble {
+  background: var(--bg-glass-light);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-time {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+.chatbot-quick-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 16px 0;
+}
+
+.quick-btn {
+  padding: 5px 12px;
+  background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.25);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  color: #60a5fa;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.quick-btn:hover {
+  background: rgba(59,130,246,0.2);
+  border-color: rgba(59,130,246,0.5);
+}
+
+.chatbot-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.chatbot-input {
+  flex: 1;
+  background: var(--bg-glass-light);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 9px 16px;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast);
+}
+.chatbot-input::placeholder { color: var(--text-muted); }
+.chatbot-input:focus { border-color: var(--accent-primary); }
+
+.chatbot-send {
+  width: 38px;
+  height: 38px;
+  background: var(--grad-primary);
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.chatbot-send:hover { transform: scale(1.08); }
+
+/* ─── Recommendation Cards ────────────────────────────────────────── */
+.rec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rec-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.rec-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+}
+
+.rec-card.urgency-low::before { background: var(--accent-success); }
+.rec-card.urgency-medium::before { background: var(--accent-warning); }
+.rec-card.urgency-high::before { background: var(--accent-danger); }
+
+.rec-card:hover {
+  border-color: var(--border-medium);
+  transform: translateX(3px);
+}
+
+.rec-emoji {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 40px;
+  text-align: center;
+}
+
+.rec-info { flex: 1; min-width: 0; }
+.rec-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.rec-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+/* ─── Dashboard Grid ──────────────────────────────────────────────── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.stat-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .stat-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .stat-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .chatbot-window { width: calc(100vw - 32px); right: 16px; }
+}
+
+/* ─── Admin Zone Table ────────────────────────────────────────────── */
+.zone-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+
+.zone-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.zone-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+  vertical-align: middle;
+  transition: background var(--transition-fast);
+}
+
+.zone-table tr:hover td {
+  background: var(--bg-glass-light);
+}
+
+.zone-table tr:last-child td { border-bottom: none; }
+
+/* ─── Progress Ring ───────────────────────────────────────────────── */
+.progress-ring svg {
+  transform: rotate(-90deg);
+}
+
+.progress-ring circle {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s ease;
+}

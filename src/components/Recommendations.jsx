@@ -1,0 +1,37 @@
+import { getRecommendations } from '../engine/simulationEngine';
+
+export default function Recommendations({ zones, eventPhase }) {
+  const recs = getRecommendations('STAND_N');
+
+  return (
+    <div className="rec-list">
+      {recs.map((rec, i) => (
+        <div
+          key={i}
+          className={`rec-card urgency-${rec.urgency}`}
+          role="button"
+          tabIndex={0}
+          aria-label={rec.title}
+        >
+          <div className="rec-emoji">{rec.icon}</div>
+          <div className="rec-info">
+            <div className="rec-title">{rec.title}</div>
+            <div className="rec-desc">{rec.description}</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }}>
+            {rec.action} →
+          </button>
+        </div>
+      ))}
+
+      {recs.length === 0 && (
+        <div style={{
+          textAlign: 'center', padding: '24px 16px',
+          color: 'var(--text-muted)', fontSize: '0.875rem',
+        }}>
+          ✅ All clear! No urgent recommendations at this time.
+        </div>
+      )}
+    </div>
+  );
+}

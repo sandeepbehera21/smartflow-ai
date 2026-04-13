@@ -1,0 +1,366 @@
+/* ─── Attendee Page Layout ────────────────────────────────────────── */
+.attendee-root {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  padding-bottom: 80px;
+}
+
+/* ─── Hero Banner ─────────────────────────────────────────────────── */
+.attendee-hero {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(139,92,246,0.08) 50%, rgba(6,182,212,0.06) 100%);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.attendee-hero-glow {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.attendee-hero-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 28px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.attendee-hero-label {
+  font-size: 0.72rem;
+  color: var(--accent-teal);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.attendee-hero-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+
+.attendee-hero-phase {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.attendee-hero-stats {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.attendee-hero-stat-item {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  text-align: center;
+  min-width: 90px;
+}
+
+.attendee-hero-stat-val {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.attendee-hero-stat-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Alerts Row ──────────────────────────────────────────────────── */
+.attendee-alerts-row {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 32px 0;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.attendee-alerts-row .alert-banner {
+  flex: 1 1 280px;
+}
+
+/* ─── Main Grid ───────────────────────────────────────────────────── */
+.attendee-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 32px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.attendee-map-col {
+  position: sticky;
+  top: 88px;
+}
+
+.attendee-map-card {
+  padding: 20px;
+}
+
+.attendee-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+/* ─── Tabs ────────────────────────────────────────────────────────── */
+.attendee-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 4px;
+}
+
+.attendee-tab {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: calc(var(--radius-md) - 2px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+}
+
+.attendee-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-glass-light);
+}
+
+.attendee-tab.active {
+  background: var(--grad-primary);
+  color: white;
+  box-shadow: var(--shadow-glow-blue);
+}
+
+/* ─── Order Card ──────────────────────────────────────────────────── */
+.attendee-order-card {
+  margin-top: 16px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(249,115,22,0.08) 100%);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+/* ─── Admin Dashboard Responsive ──────────────────────────────────── */
+.admin-root {
+  padding: 24px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.admin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.admin-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* ─── Responsive Breakpoints ──────────────────────────────────────── */
+
+/* Tablet landscape / small desktop */
+@media (max-width: 1100px) {
+  .attendee-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    padding: 20px 24px;
+  }
+
+  .admin-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Tablet portrait */
+@media (max-width: 900px) {
+  .attendee-hero-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px 24px;
+  }
+
+  .attendee-hero-stats {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .attendee-hero-stat-item {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .attendee-grid {
+    grid-template-columns: 1fr;
+    padding: 20px 20px;
+  }
+
+  .attendee-map-col {
+    position: static;
+  }
+
+  .attendee-alerts-row {
+    padding: 12px 20px 0;
+  }
+
+  .admin-root {
+    padding: 20px 20px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .attendee-hero-inner {
+    padding: 16px;
+  }
+
+  .attendee-hero-title {
+    font-size: 1.2rem;
+  }
+
+  .attendee-hero-stats {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .attendee-hero-stat-item {
+    padding: 8px 12px;
+    min-width: 70px;
+  }
+
+  .attendee-hero-stat-val {
+    font-size: 1.2rem;
+  }
+
+  .attendee-grid {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .attendee-alerts-row {
+    padding: 12px 16px 0;
+    flex-direction: column;
+  }
+
+  .attendee-tab {
+    font-size: 0.78rem;
+    padding: 8px 6px;
+  }
+
+  .stat-grid-4 {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .admin-root {
+    padding: 16px;
+  }
+
+  .admin-header {
+    flex-direction: column;
+  }
+
+  .admin-main-grid,
+  .admin-bottom-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .navbar {
+    height: 56px;
+    padding: 0 12px;
+  }
+
+  .navbar-logo-sub {
+    display: none;
+  }
+
+  .chatbot-window {
+    width: calc(100vw - 24px);
+    right: 12px;
+    bottom: 80px;
+    max-height: 420px;
+  }
+
+  .chatbot-fab {
+    width: 48px;
+    height: 48px;
+    bottom: 16px;
+    right: 16px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 400px) {
+  .attendee-hero-stats {
+    flex-direction: row;
+  }
+
+  .attendee-hero-stat-item {
+    padding: 6px 8px;
+  }
+
+  .attendee-hero-stat-val {
+    font-size: 1rem;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+  }
+}
