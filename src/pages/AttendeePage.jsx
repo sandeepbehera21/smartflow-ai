@@ -3,6 +3,7 @@ import StadiumMap from '../components/StadiumMap';
 import QueueManager from '../components/QueueManager';
 import Recommendations from '../components/Recommendations';
 import Chatbot from '../components/Chatbot';
+import OrderModal from '../components/OrderModal';
 
 const PHASE_LABELS = {
   PRE_MATCH: 'Match starts in ~30 min',
@@ -11,8 +12,13 @@ const PHASE_LABELS = {
   POST_MATCH: 'Match ended — safely exit',
 };
 
+const LANGUAGES = ['🇬🇧 EN', '🇪🇸 ES', '🇫🇷 FR', '🇩🇪 DE', '🇯🇵 JA', '🇧🇷 PT'];
+
 export default function AttendeePage({ data }) {
   const [tab, setTab] = useState('queues');
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [selectedLang, setSelectedLang] = useState('🇬🇧 EN');
+
   const zones = data?.zones || {};
   const phase = data?.eventPhase || 'PRE_MATCH';
   const alerts = data?.alerts || [];
@@ -119,7 +125,11 @@ export default function AttendeePage({ data }) {
                   <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
                     Pre-order from any food court and pick it up when ready — no waiting required.
                   </div>
-                  <button className="btn btn-primary btn-sm" style={{ width: '100%' }}>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ width: '100%' }}
+                    onClick={() => setShowOrderModal(true)}
+                  >
                     🍔 Browse Menu & Order
                   </button>
                 </div>
@@ -127,19 +137,46 @@ export default function AttendeePage({ data }) {
                 {/* Multilingual note */}
                 <div className="card" style={{ marginTop: 16, padding: 16, textAlign: 'center' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8 }}>
-                    🌍 Multilingual Support
+                    🌍 Multilingual Support — Tap a language to switch
                   </div>
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    {['🇬🇧 EN', '🇪🇸 ES', '🇫🇷 FR', '🇩🇪 DE', '🇯🇵 JA', '🇧🇷 PT'].map(lang => (
-                      <span key={lang} className="tag">{lang}</span>
+                    {LANGUAGES.map(lang => (
+                      <button
+                        key={lang}
+                        className={`tag lang-tag ${selectedLang === lang ? 'active' : ''}`}
+                        onClick={() => setSelectedLang(lang)}
+                        title={`Switch to ${lang}`}
+                        style={{
+                          cursor: 'pointer',
+                          border: selectedLang === lang ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                          background: selectedLang === lang ? 'rgba(59,130,246,0.15)' : 'transparent',
+                          color: selectedLang === lang ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                          padding: '4px 10px',
+                          borderRadius: 999,
+                          fontSize: '0.78rem',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        {lang}
+                      </button>
                     ))}
                   </div>
+                  {selectedLang !== '🇬🇧 EN' && (
+                    <div style={{ marginTop: 10, fontSize: '0.8rem', color: 'var(--accent-primary)' }}>
+                      ✅ Interface language set to <strong>{selectedLang}</strong>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Order Modal */}
+      {showOrderModal && (
+        <OrderModal onClose={() => setShowOrderModal(false)} />
+      )}
 
       {/* Chatbot FAB */}
       <Chatbot />

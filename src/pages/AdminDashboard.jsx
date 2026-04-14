@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   AreaChart, Area, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import StadiumMap from '../components/StadiumMap';
-import { ZONES } from '../engine/simulationEngine';
+import { ZONES, triggerEmergency } from '../engine/simulationEngine';
 
 function getDensityColor(d) {
   if (d < 0.35) return '#10b981';
@@ -70,10 +70,48 @@ export default function AdminDashboard({ data }) {
   const chartHistory = addHistory(stats, phase);
 
   const [broadcastSent, setBroadcastSent] = useState(false);
+  const [deployedZones, setDeployedZones] = useState({});
+  const [toast, setToast] = useState(null);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const showToast = (msg, type = 'success') => setToast({ msg, type });
 
   const handleBroadcast = () => {
     setBroadcastSent(true);
+    showToast('📢 Alert broadcasted to all stadium screens!');
     setTimeout(() => setBroadcastSent(false), 3000);
+  };
+
+  const handleExport = () => {
+    const csvRows = [
+      ['Zone', 'Type', 'Density %', 'Wait Time (min)', 'Status'],
+      ...zoneTableData.map(z => [
+        z.name, z.type,
+        Math.round(z.density * 100),
+        z.waitTime,
+        z.density < 0.35 ? 'Clear' : z.density < 0.6 ? 'Moderate' : z.density < 0.75 ? 'Busy' : z.density < 0.88 ? 'High' : 'CRITICAL',
+      ]),
+    ];
+    const csv = csvRows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `smartflow-report-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('📊 Report exported as CSV!');
+  };
+
+  const handleDeploy = (zoneName, zoneId) => {
+    setDeployedZones(prev => ({ ...prev, [zoneId]: true }));
+    showToast(`👮 Staff deployed to ${zoneName}!`);
   };
 
   // Build zone table data
@@ -93,6 +131,13 @@ export default function AdminDashboard({ data }) {
   return (
     <div className="admin-root">
 
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`admin-toast toast-${toast.type}`}>
+          {toast.msg}
+        </div>
+      )}
+
       {/* Header row */}
       <div className="admin-header">
         <div>
@@ -107,7 +152,7 @@ export default function AdminDashboard({ data }) {
           <button onClick={handleBroadcast} className={`btn ${broadcastSent ? 'btn-success' : 'btn-danger'}`}>
             {broadcastSent ? '✅ Alert Sent!' : '📢 Broadcast Alert'}
           </button>
-          <button className="btn btn-ghost">
+          <button className="btn btn-ghost" onClick={handleExport}>
             ⬇ Export Report
           </button>
         </div>
@@ -336,8 +381,12 @@ export default function AdminDashboard({ data }) {
                         {Math.round(z.density * 100)}% — Deploy {z.density > 0.88 ? '4-6' : '2-3'} staff
                       </div>
                     </div>
-                    <button className={`btn btn-sm ${z.density > 0.88 ? 'btn-danger' : 'btn-primary'}`}>
-                      Deploy
+                    <button
+                      className={`btn btn-sm ${deployedZones[z.id] ? 'btn-success' : z.density > 0.88 ? 'btn-danger' : 'btn-primary'}`}
+                      onClick={() => handleDeploy(z.name, z.id)}
+                      disabled={deployedZones[z.id]}
+                    >
+                      {deployedZones[z.id] ? '✅ Deployed' : 'Deploy'}
                     </button>
                   </div>
                 ))
@@ -357,13 +406,13 @@ export default function AdminDashboard({ data }) {
               Activate emergency protocols & evacuation routes instantly.
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button className="btn btn-danger btn-sm w-full">
+              <button className="btn btn-danger btn-sm w-full" onClick={() => triggerEmergency('EVACUATE IMMEDIATELY - Follow nearest exit signs.', 'critical')}>
                 🔴 Initiate Evacuation Protocol
               </button>
-              <button className="btn btn-ghost btn-sm w-full">
+              <button className="btn btn-ghost btn-sm w-full" onClick={() => triggerEmergency('SAFETY ALERT: Please remain seated and calm.', 'warning')}>
                 📢 Broadcast Safety Message
               </button>
-              <button className="btn btn-ghost btn-sm w-full">
+              <button className="btn btn-ghost btn-sm w-full" onClick={() => triggerEmergency('Medical teams deployed. Make way for emergency staff.', 'critical')}>
                 🏥 Alert Medical Teams
               </button>
             </div>

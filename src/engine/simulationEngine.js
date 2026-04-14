@@ -71,6 +71,18 @@ const crowdPatterns = {
 
 const subscribers = new Set();
 
+let emergencyAlerts = [];
+
+export function triggerEmergency(message, severity = 'critical') {
+  emergencyAlerts.push({
+    severity,
+    message,
+    isEmergency: true,
+    zoneName: 'GLOBAL ALERT',
+  });
+  notify();
+}
+
 export function subscribe(cb) {
   subscribers.add(cb);
   return () => subscribers.delete(cb);
@@ -91,14 +103,15 @@ export function getSnapshot() {
 }
 
 function getAlerts() {
-  return Object.entries(state)
+  const alerts = [...emergencyAlerts];
+  return alerts.concat(Object.entries(state)
     .filter(([, z]) => z.density > 0.85)
     .map(([id]) => ({
       zoneId: id,
       zoneName: ZONES[id]?.name || id,
       severity: state[id].density > 0.92 ? 'critical' : 'warning',
       message: `High congestion detected at ${ZONES[id]?.name || id}`,
-    }));
+    })));
 }
 
 function getStats() {
