@@ -68,7 +68,7 @@ async function getGeminiResponse(userMessage) {
   try {
     // systemInstruction must be set on the model, not on startChat
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       systemInstruction: buildSystemPrompt(),
     });
     const result = await model.generateContent(userMessage);
