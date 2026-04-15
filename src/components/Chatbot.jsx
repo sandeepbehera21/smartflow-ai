@@ -6,9 +6,24 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize Google Gemini AI Service
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-// Debug: log whether the key loaded (visible in browser console)
-console.info('[FlowBot] Gemini key loaded:', GEMINI_KEY ? '✅ YES' : '❌ NOT FOUND');
 const genAI = GEMINI_KEY ? new GoogleGenerativeAI(GEMINI_KEY) : null;
+
+// Rate limiter — max 4 requests per minute to stay within free tier
+let requestTimestamps = [];
+const MAX_RPM = 4;
+
+function isRateLimited() {
+  const now = Date.now();
+  requestTimestamps = requestTimestamps.filter(t => now - t < 60000);
+  return requestTimestamps.length >= MAX_RPM;
+}
+
+function recordRequest() {
+  requestTimestamps.push(Date.now());
+}
+
+// Response cache to avoid duplicate API calls
+const responseCache = new Map();
 
 const QUICK_QUESTIONS = [
   'Best food now?',
@@ -22,7 +37,7 @@ const QUICK_QUESTIONS = [
 const INITIAL_MESSAGES = [
   {
     role: 'bot',
-    text: `👋 Hi, I'm **FlowBot** — your AI stadium assistant powered by ${genAI ? '✨ Google Gemini AI' : 'SmartFlow Engine'}! Ask me anything about queues, food, exits, or crowd status.`,
+    text: `👋 Hi, I'm **FlowBot** — your AI stadium assistant${genAI ? ' powered by ✨ Google Gemini AI' : ''}! Ask me anything about queues, food, exits, or crowd status.`,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   }
 ];
@@ -35,46 +50,62 @@ function parseMarkdown(text) {
   return DOMPurify.sanitize(rawHtml);
 }
 
-// Build a stadium-aware system prompt for Gemini
+// Build a compact stadium context for Gemini (keep tokens LOW)
 function buildSystemPrompt() {
   const snap = getSnapshot();
   const zones = snap.zones;
   const phase = snap.eventPhase;
 
-  const zoneInfo = Object.entries(zones)
-    .map(([id, z]) => `${id}: density=${Math.round((z.density||0)*100)}%, waitTime=${z.waitTime||0}min`)
-    .join('; ');
+  // Only include top 6 busiest zones to save tokens
+  const topZones = Object.entries(zones)
+    .filter(([id]) => id !== 'FIELD')
+    .sort(([,a], [,b]) => (b.density||0) - (a.density||0))
+    .slice(0, 6)
+    .map(([id, z]) => `${id}:${Math.round((z.density||0)*100)}%/${z.waitTime||0}min`)
+    .join(', ');
 
-  return `You are FlowBot, an AI assistant for SmartFlow AI — a real-time stadium crowd management system for Arena Championship 2025.
-
-CURRENT STADIUM STATE:
-- Event Phase: ${phase.replace('_', ' ')}
-- Zone Data: ${zoneInfo}
-
-YOUR ROLE:
-- Help attendees navigate the stadium intelligently
-- Recommend the least crowded food courts, restrooms, and exits
-- Provide crowd safety information
-- Give concise, friendly, actionable answers
-- Use emojis naturally to make responses feel premium
-- Keep responses to 2-3 sentences max unless detailed directions are needed
-- Always reference the REAL live zone data above when answering
-
-Respond in a helpful, energetic stadium assistant tone.`;
+  return `You are FlowBot, AI assistant for SmartFlow AI stadium system at Arena Championship 2025.
+Phase: ${phase.replace('_',' ')}. Top zones: ${topZones}.
+Give short (2-3 sentence), helpful, emoji-rich answers about food, restrooms, exits, crowds, safety. Use the zone data above.`;
 }
 
 async function getGeminiResponse(userMessage) {
   if (!genAI) return null;
+
+  // Check cache first
+  const cacheKey = userMessage.toLowerCase().trim();
+  if (responseCache.has(cacheKey)) {
+    return responseCache.get(cacheKey);
+  }
+
+  // Check rate limit
+  if (isRateLimited()) {
+    console.info('[FlowBot] Rate limited, using local engine');
+    return null;
+  }
+
   try {
-    // systemInstruction must be set on the model, not on startChat
+    recordRequest();
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.0-flash-lite',
       systemInstruction: buildSystemPrompt(),
+      generationConfig: {
+        maxOutputTokens: 150,
+        temperature: 0.7,
+      },
     });
     const result = await model.generateContent(userMessage);
-    return result.response.text();
+    const text = result.response.text();
+    // Cache the response
+    responseCache.set(cacheKey, text);
+    return text;
   } catch (err) {
-    console.warn('[FlowBot] Gemini API error, falling back to local engine:', err.message);
+    console.warn('[FlowBot] Gemini error:', err.message);
+    // If quota exceeded, disable Gemini for 60 seconds
+    if (err.message?.includes('429') || err.message?.includes('quota') || err.message?.includes('RESOURCE_EXHAUSTED')) {
+      // Fill up rate limiter to block further requests
+      for (let i = 0; i < MAX_RPM; i++) requestTimestamps.push(Date.now());
+    }
     return null;
   }
 }
@@ -91,7 +122,7 @@ export default function Chatbot() {
   }, [messages, open, typing]);
 
   const sendMessage = async (text) => {
-    if (!text.trim()) return;
+    if (!text.trim() || typing) return;
     const userMsg = {
       role: 'user',
       text: text.trim(),
@@ -101,14 +132,18 @@ export default function Chatbot() {
     setInput('');
     setTyping(true);
 
-    // Try Gemini first, fall back to local engine
-    let response;
+    let response = null;
+    let usedGemini = false;
+
+    // Try Gemini first
     if (genAI) {
       response = await getGeminiResponse(text.trim());
+      if (response) usedGemini = true;
     }
+
+    // Fallback to local engine
     if (!response) {
-      // Simulate slight delay for local responses too
-      await new Promise(r => setTimeout(r, 500 + Math.random() * 400));
+      await new Promise(r => setTimeout(r, 300 + Math.random() * 300));
       response = getChatResponse(text.trim());
     }
 
@@ -119,7 +154,7 @@ export default function Chatbot() {
         role: 'bot',
         text: response,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isGemini: !!genAI,
+        isGemini: usedGemini,
       }
     ]);
   };
@@ -193,7 +228,7 @@ export default function Chatbot() {
                     {[0.1, 0.2, 0.3].map((d, i) => (
                       <span key={i} style={{
                         width: 6, height: 6, borderRadius: '50%',
-                        background: 'var(--text-secondary)',
+                        background: genAI ? '#a78bfa' : 'var(--text-secondary)',
                         animation: `pulse-ring 1.2s ${d}s infinite`,
                         display: 'inline-block',
                       }} />
@@ -218,6 +253,7 @@ export default function Chatbot() {
                 key={q}
                 className="quick-btn"
                 onClick={() => sendMessage(q)}
+                disabled={typing}
               >
                 {q}
               </button>
