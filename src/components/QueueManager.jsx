@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { ZONES } from '../engine/simulationEngine';
 
 function getDensityColor(d) {
@@ -46,12 +47,14 @@ const TYPE_COLORS = {
 };
 
 export default function QueueManager({ zones }) {
-  const zoneList = Object.entries(ZONES)
-    .filter(([id]) => id !== 'FIELD')
-    .map(([id, zone]) => ({
-      id, ...zone, ...zones[id],
-    }))
-    .sort((a, b) => (b.density || 0) - (a.density || 0));
+  const zoneList = useMemo(() => {
+    return Object.entries(ZONES)
+      .filter(([id]) => id !== 'FIELD')
+      .map(([id, zone]) => ({
+        id, ...zone, ...zones[id],
+      }))
+      .sort((a, b) => (b.density || 0) - (a.density || 0));
+  }, [zones]);
 
   const foodZones  = zoneList.filter(z => z.type === 'food');
   const restZones  = zoneList.filter(z => z.type === 'restroom');

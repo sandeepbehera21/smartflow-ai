@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import Navbar from './components/Navbar';
-import AttendeePage from './pages/AttendeePage';
-import AdminDashboard from './pages/AdminDashboard';
 import { useSimulation } from './hooks/useSimulation';
 import './styles/global.css';
 import './styles/navbar.css';
 import './styles/components.css';
 import './styles/responsive.css';
+
+const AttendeePage = lazy(() => import('./pages/AttendeePage'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 export default function App() {
   const [activeView, setActiveView] = useState('attendee');
@@ -21,11 +22,13 @@ export default function App() {
         data={data}
       />
       <main style={{ position: 'relative', zIndex: 1 }} key={activeView} className="animate-fadeIn">
-        {activeView === 'attendee' ? (
-          <AttendeePage data={data} />
-        ) : (
-          <AdminDashboard data={data} />
-        )}
+        <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading interface...</div>}>
+          {activeView === 'attendee' ? (
+            <AttendeePage data={data} />
+          ) : (
+            <AdminDashboard data={data} />
+          )}
+        </Suspense>
       </main>
     </div>
   );

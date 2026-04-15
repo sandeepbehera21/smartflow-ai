@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, X } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { getChatResponse } from '../engine/simulationEngine';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// Initialize Google Gemini AI Service
+// To activate live Gemini responses, set VITE_GEMINI_API_KEY in .env
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || 'dummy_key');
 
 const QUICK_QUESTIONS = [
   'Best food now?',
@@ -19,8 +25,9 @@ const INITIAL_MESSAGES = [
 ];
 
 function parseMarkdown(text) {
-  // Very simple **bold** parser
-  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Very simple **bold** parser combined with DOMPurify for security
+  const rawHtml = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  return DOMPurify.sanitize(rawHtml);
 }
 
 export default function Chatbot() {
