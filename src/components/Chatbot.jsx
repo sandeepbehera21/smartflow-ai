@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, X } from 'lucide-react';
+import { Send, X, Zap } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import { getChatResponse } from '../engine/simulationEngine';
+import { getChatResponse, getSnapshot } from '../engine/simulationEngine';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize Google Gemini AI Service
-// To activate live Gemini responses, set VITE_GEMINI_API_KEY in .env
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || 'dummy_key');
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+// Debug: log whether the key loaded (visible in browser console)
+console.info('[FlowBot] Gemini key loaded:', GEMINI_KEY ? '✅ YES' : '❌ NOT FOUND');
+const genAI = GEMINI_KEY ? new GoogleGenerativeAI(GEMINI_KEY) : null;
 
 const QUICK_QUESTIONS = [
   'Best food now?',
@@ -14,20 +16,67 @@ const QUICK_QUESTIONS = [
   'Quickest exit',
   'Crowd status',
   'Wait times',
+  'Is it safe?',
 ];
 
 const INITIAL_MESSAGES = [
   {
     role: 'bot',
-    text: "👋 Hi, I'm **FlowBot** — your AI stadium assistant! Ask me anything about queues, food, exits, or crowd status.",
+    text: `👋 Hi, I'm **FlowBot** — your AI stadium assistant powered by ${genAI ? '✨ Google Gemini AI' : 'SmartFlow Engine'}! Ask me anything about queues, food, exits, or crowd status.`,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   }
 ];
 
 function parseMarkdown(text) {
-  // Very simple **bold** parser combined with DOMPurify for security
-  const rawHtml = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  const rawHtml = text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br/>');
   return DOMPurify.sanitize(rawHtml);
+}
+
+// Build a stadium-aware system prompt for Gemini
+function buildSystemPrompt() {
+  const snap = getSnapshot();
+  const zones = snap.zones;
+  const phase = snap.eventPhase;
+
+  const zoneInfo = Object.entries(zones)
+    .map(([id, z]) => `${id}: density=${Math.round((z.density||0)*100)}%, waitTime=${z.waitTime||0}min`)
+    .join('; ');
+
+  return `You are FlowBot, an AI assistant for SmartFlow AI — a real-time stadium crowd management system for Arena Championship 2025.
+
+CURRENT STADIUM STATE:
+- Event Phase: ${phase.replace('_', ' ')}
+- Zone Data: ${zoneInfo}
+
+YOUR ROLE:
+- Help attendees navigate the stadium intelligently
+- Recommend the least crowded food courts, restrooms, and exits
+- Provide crowd safety information
+- Give concise, friendly, actionable answers
+- Use emojis naturally to make responses feel premium
+- Keep responses to 2-3 sentences max unless detailed directions are needed
+- Always reference the REAL live zone data above when answering
+
+Respond in a helpful, energetic stadium assistant tone.`;
+}
+
+async function getGeminiResponse(userMessage) {
+  if (!genAI) return null;
+  try {
+    // systemInstruction must be set on the model, not on startChat
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      systemInstruction: buildSystemPrompt(),
+    });
+    const result = await model.generateContent(userMessage);
+    return result.response.text();
+  } catch (err) {
+    console.warn('[FlowBot] Gemini API error, falling back to local engine:', err.message);
+    return null;
+  }
 }
 
 export default function Chatbot() {
@@ -41,7 +90,7 @@ export default function Chatbot() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open, typing]);
 
-  const sendMessage = (text) => {
+  const sendMessage = async (text) => {
     if (!text.trim()) return;
     const userMsg = {
       role: 'user',
@@ -52,19 +101,27 @@ export default function Chatbot() {
     setInput('');
     setTyping(true);
 
-    // Simulate network delay for realism
-    setTimeout(() => {
-      const response = getChatResponse(text.trim());
-      setTyping(false);
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'bot',
-          text: response,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        }
-      ]);
-    }, 700 + Math.random() * 500);
+    // Try Gemini first, fall back to local engine
+    let response;
+    if (genAI) {
+      response = await getGeminiResponse(text.trim());
+    }
+    if (!response) {
+      // Simulate slight delay for local responses too
+      await new Promise(r => setTimeout(r, 500 + Math.random() * 400));
+      response = getChatResponse(text.trim());
+    }
+
+    setTyping(false);
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: response,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isGemini: !!genAI,
+      }
+    ]);
   };
 
   const handleKey = (e) => {
@@ -90,13 +147,20 @@ export default function Chatbot() {
 
       {/* Chat Window */}
       {open && (
-        <div className="chatbot-window" role="dialog" aria-label="FlowBot Chat">
+        <div className="chatbot-window" role="dialog" aria-modal="true" aria-label="FlowBot Chat">
           {/* Header */}
           <div className="chatbot-header">
             <div className="chatbot-avatar">🤖</div>
             <div>
               <div className="chatbot-title">FlowBot</div>
-              <div className="chatbot-status">● Online • AI-Powered</div>
+              <div className="chatbot-status">
+                ● Online •{' '}
+                {genAI ? (
+                  <span style={{ color: '#a78bfa', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    <Zap size={10} /> Gemini AI
+                  </span>
+                ) : 'SmartFlow Engine'}
+              </div>
             </div>
             <button className="chatbot-close" onClick={() => setOpen(false)} aria-label="Close chat">
               <X size={14} />
@@ -111,7 +175,14 @@ export default function Chatbot() {
                   className="chat-bubble"
                   dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.text) }}
                 />
-                <span className="chat-time">{msg.time}</span>
+                <span className="chat-time">
+                  {msg.time}
+                  {msg.isGemini && (
+                    <span style={{ marginLeft: 6, color: '#a78bfa', fontSize: '0.65rem' }}>
+                      ✦ Gemini
+                    </span>
+                  )}
+                </span>
               </div>
             ))}
 
@@ -127,6 +198,11 @@ export default function Chatbot() {
                         display: 'inline-block',
                       }} />
                     ))}
+                    {genAI && (
+                      <span style={{ fontSize: '0.7rem', color: '#a78bfa', marginLeft: 6 }}>
+                        Gemini thinking…
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
@@ -152,7 +228,7 @@ export default function Chatbot() {
           <div className="chatbot-input-row">
             <input
               className="chatbot-input"
-              placeholder="Ask about queues, food, exits…"
+              placeholder={genAI ? 'Ask anything — powered by Gemini AI…' : 'Ask about queues, food, exits…'}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
@@ -162,6 +238,7 @@ export default function Chatbot() {
               className="chatbot-send"
               onClick={() => sendMessage(input)}
               aria-label="Send message"
+              disabled={typing}
             >
               <Send size={16} />
             </button>
