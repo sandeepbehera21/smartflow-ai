@@ -12,7 +12,7 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { auth, db, firebaseEnabled } from '../config/firebase';
 
 let firestoreAvailable = null;
 
@@ -34,7 +34,7 @@ const listeners = {
 const warnedKeys = new Set();
 
 function getCurrentUser() {
-  return auth.currentUser;
+  return auth?.currentUser ?? null;
 }
 
 function warnOnce(key, message, detail) {
@@ -137,6 +137,11 @@ async function checkFirestoreConnection() {
     return firestoreAvailable;
   }
 
+  if (!firebaseEnabled || !db) {
+    firestoreAvailable = false;
+    return firestoreAvailable;
+  }
+
   try {
     const testRef = doc(db, ...PUBLIC_CROWD_DOC);
     await getDoc(testRef);
@@ -161,7 +166,7 @@ export async function writeCrowdData(crowdSnapshot) {
     // Ignore local storage failures.
   }
 
-  if (firestoreAvailable === false || !isCurrentUserAdmin()) {
+  if (!db || firestoreAvailable === false || !isCurrentUserAdmin()) {
     emitCrowdChange(crowdSnapshot);
     return;
   }
@@ -184,7 +189,7 @@ export async function writeCrowdData(crowdSnapshot) {
 export function listenToCrowdData(callback) {
   listeners.crowdData.add(callback);
 
-  if (firestoreAvailable === false) {
+  if (!db || firestoreAvailable === false) {
     try {
       const raw = localStorage.getItem(LOCAL_CROWD_KEY);
       if (raw) {
@@ -223,7 +228,7 @@ export function listenToCrowdData(callback) {
 }
 
 export async function getCurrentCrowdState() {
-  if (firestoreAvailable === false) {
+  if (!db || firestoreAvailable === false) {
     try {
       const raw = localStorage.getItem(LOCAL_CROWD_KEY);
       return raw ? JSON.parse(raw) : null;
@@ -265,7 +270,7 @@ export async function createFoodOrder(orderData) {
   emitOrdersChange();
 
   // Do not block attendee confirmation on remote Firestore health.
-  if (firestoreAvailable !== false) {
+  if (db && firestoreAvailable !== false) {
     const orderRef = doc(collection(db, 'orders'), orderId);
     setDoc(orderRef, {
       ...order,
@@ -294,7 +299,7 @@ export async function updateOrderStatus(orderId, newStatus) {
     emitOrdersChange();
   }
 
-  if (firestoreAvailable !== false) {
+  if (db && firestoreAvailable !== false) {
     try {
       const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, {
@@ -321,7 +326,7 @@ export function listenToAttendeeOrders(attendeeId, callback) {
     callback(localOrders);
   }
 
-  if (firestoreAvailable === false) {
+  if (!db || firestoreAvailable === false) {
     return () => {
       listeners.orders.delete(localCallback);
     };
@@ -365,7 +370,7 @@ export function listenToActiveOrders(callback) {
 
   callback(getLocalOrders().filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status)));
 
-  if (firestoreAvailable === false) {
+  if (!db || firestoreAvailable === false) {
     return () => {
       listeners.orders.delete(localCallback);
     };
@@ -401,7 +406,7 @@ export async function getAllOrders(status = null) {
     throw new Error('Only admins can view all orders.');
   }
 
-  if (firestoreAvailable === false) {
+  if (!db || firestoreAvailable === false) {
     const localOrders = getLocalOrders();
     return status ? localOrders.filter((order) => order.status === status) : localOrders;
   }
@@ -444,7 +449,7 @@ export async function batchUpdateOrders(updates) {
   saveLocalOrders(localOrders);
   emitOrdersChange();
 
-  if (firestoreAvailable !== false) {
+  if (db && firestoreAvailable !== false) {
     try {
       const batch = writeBatch(db);
       updates.forEach(({ orderId, status }) => {
@@ -476,7 +481,7 @@ export async function cleanupCompletedOrders(hoursOld = 24) {
   saveLocalOrders(localOrders);
   emitOrdersChange();
 
-  if (firestoreAvailable !== false) {
+  if (db && firestoreAvailable !== false) {
     try {
       const cutoffDate = new Date(cutoffTime);
       const q = query(
@@ -503,6 +508,11 @@ export function isFirestoreConnected() {
 
 export async function saveAttendeeLocation(locationData) {
   const attendeeId = getCurrentAttendeeId();
+
+  if (!db) {
+    return { attendeeId, ...locationData };
+  }
+
   const locationRef = doc(db, 'attendeeLocations', attendeeId);
 
   await setDoc(locationRef, {
@@ -517,6 +527,10 @@ export async function saveAttendeeLocation(locationData) {
 }
 
 export async function clearAttendeeLocation(attendeeId = getCurrentAttendeeId()) {
+  if (!db) {
+    return;
+  }
+
   await deleteDoc(doc(db, 'attendeeLocations', attendeeId));
 }
 

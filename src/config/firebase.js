@@ -12,13 +12,8 @@ const requiredEnvKeys = [
 ];
 
 const missingKeys = requiredEnvKeys.filter((key) => !import.meta.env[key]);
-
-if (missingKeys.length > 0) {
-  throw new Error(
-    `Missing Firebase env vars: ${missingKeys.join(', ')}. ` +
-    'Add them to .env.local and restart the Vite dev server.'
-  );
-}
+export const firebaseEnabled = missingKeys.length === 0;
+export const firebaseMissingKeys = missingKeys;
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -29,8 +24,8 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
+const app = firebaseEnabled ? initializeApp(firebaseConfig) : null;
+export const db = app ? getFirestore(app) : null;
+export const auth = app ? getAuth(app) : null;
 
 export default app;

@@ -6,7 +6,7 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { auth, firebaseEnabled, firebaseMissingKeys } from '../config/firebase';
 
 const AuthContext = createContext(null);
 
@@ -36,6 +36,20 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!auth) {
+      setUser({ uid: getLocalUserId(), isAnonymous: true, email: null });
+      setRole('attendee');
+      setLoading(false);
+
+      if (!anonymousAuthWarningShown && !firebaseEnabled) {
+        anonymousAuthWarningShown = true;
+        console.warn(
+          `Firebase env missing in this deployment. Running in local demo mode without backend sync. Missing: ${firebaseMissingKeys.join(', ')}`
+        );
+      }
+      return undefined;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
         setUser(null);
@@ -53,7 +67,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (loading || user) {
+    if (!auth || loading || user) {
       return;
     }
 
@@ -69,6 +83,12 @@ export function AuthProvider({ children }) {
 
   const loginAsAdmin = useCallback(async (email, password) => {
     setError(null);
+
+    if (!auth) {
+      const message = 'Firebase is not configured in this deployment. Add VITE_FIREBASE_* env vars in Vercel to enable admin login.';
+      setError(message);
+      throw new Error(message);
+    }
 
     try {
       const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -100,6 +120,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
+    if (!auth) {
+      setUser({ uid: getLocalUserId(), isAnonymous: true, email: null });
+      setRole('attendee');
+      return;
+    }
+
     try {
       await firebaseSignOut(auth);
     } catch (err) {
