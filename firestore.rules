@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email in [
+          'admin@smartflow.ai',
+          'sandeep@smartflow.ai'
+        ];
+    }
+
+    function isOrderOwner() {
+      return isSignedIn() && resource.data.attendeeId == request.auth.uid;
+    }
+
+    function isCreatingOwnOrder() {
+      return isSignedIn()
+        && request.resource.data.attendeeId == request.auth.uid
+        && request.resource.data.status == 'PENDING';
+    }
+
+    match /publicData/{documentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAdmin() || isOrderOwner();
+
+      allow create: if isAdmin() || (
+        isCreatingOwnOrder()
+        && request.resource.data.orderId == orderId
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.foodCourt is string
+        && request.resource.data.totalPrice is number
+        && request.resource.data.estimatedTime is number
+      );
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /attendeeLocations/{attendeeId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == attendeeId);
+      allow create, update, delete: if isAdmin() || (isSignedIn() && request.auth.uid == attendeeId);
+    }
+
+    match /users/{userId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

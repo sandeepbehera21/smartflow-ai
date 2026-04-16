@@ -34,6 +34,11 @@
 - Timeline Area Charts analyzing global average and absolute peak densities.
 - Central system override for Emergency Broadasting/Evacuations.
 
+### 6. 🔐 Role-Based Authentication (Firebase Auth)
+- **Anonymous Login**: Seamless 1-click anonymous auth for attendees.
+- **Admin Access**: Secure email/password login protecting the Admin Dashboard.
+- **Dual-Storage Resilience**: Orders gracefully failover to local storage and memory events if the user goes offline or Firebase disconnects.
+
 ---
 
 ## 🛠 Tech Stack

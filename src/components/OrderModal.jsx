@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, ShoppingCart, Plus, Minus, CheckCircle, Clock } from 'lucide-react';
+import { createFoodOrder } from '../services/firestoreService';
+import { useAuth } from '../contexts/AuthContext';
 
 const MENU = {
   'Food Court Alpha': [
@@ -34,12 +36,15 @@ const DRINKS = [
 
 const ALL_COURTS = Object.keys(MENU);
 
-export default function OrderModal({ onClose, preferredCourt }) {
+export default function OrderModal({ onClose, preferredCourt, onOrderPlaced }) {
+  const { userId } = useAuth();
   const [selectedCourt, setSelectedCourt] = useState(preferredCourt || ALL_COURTS[0]);
   const [cart, setCart] = useState({});
   const [ordered, setOrdered] = useState(false);
   const [orderNum, setOrderNum] = useState('');
   const [activeTab, setActiveTab] = useState('food');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   // Close on Escape
   useEffect(() => {
@@ -77,11 +82,31 @@ export default function OrderModal({ onClose, preferredCourt }) {
     return mins > max ? mins : max;
   }, 0);
 
-  const placeOrder = () => {
+  const placeOrder = async () => {
     if (totalItems === 0) return;
-    const num = `SF-${Math.floor(1000 + Math.random() * 9000)}`;
-    setOrderNum(num);
-    setOrdered(true);
+    
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      // Create order in Firestore
+      const order = await createFoodOrder({
+        attendeeId: userId,
+        items: cartItems,
+        foodCourt: selectedCourt,
+        totalPrice: total,
+        estimatedTime: maxPrepTime,
+      });
+      
+      setOrderNum(order.orderId.slice(-6));
+      setOrdered(true);
+      if (onOrderPlaced) onOrderPlaced(order);
+    } catch (err) {
+      console.error('Error placing order:', err);
+      setError('Failed to place order. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -172,6 +197,18 @@ export default function OrderModal({ onClose, preferredCourt }) {
 
             {/* Cart Summary & Checkout */}
             <div className="order-cart-bar">
+              {error && (
+                <div style={{
+                  padding: '8px 12px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#ef4444',
+                  borderRadius: 4,
+                  fontSize: '0.8rem',
+                  marginBottom: 12,
+                }}>
+                  ⚠️ {error}
+                </div>
+              )}
               <div className="cart-summary">
                 <ShoppingCart size={16} />
                 <span>{totalItems} item{totalItems !== 1 ? 's' : ''}</span>
@@ -186,10 +223,10 @@ export default function OrderModal({ onClose, preferredCourt }) {
               <button
                 className="btn btn-primary btn-sm"
                 onClick={placeOrder}
-                disabled={totalItems === 0}
+                disabled={totalItems === 0 || isSubmitting}
                 style={{ flexShrink: 0 }}
               >
-                Place Order →
+                {isSubmitting ? '⏳ Placing...' : 'Place Order →'}
               </button>
             </div>
           </>

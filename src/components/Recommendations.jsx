@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { getRecommendations } from '../engine/simulationEngine';
 import NavigationModal from './NavigationModal';
 
-export default function Recommendations({ zones, eventPhase }) {
+export default function Recommendations({ zones }) {
   const recs = getRecommendations('STAND_N');
   const [navZone, setNavZone] = useState(null);
 

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react';
 import { X, MapPin, Clock, Users, Navigation, CheckCircle } from 'lucide-react';
 import { ZONES } from '../engine/simulationEngine';

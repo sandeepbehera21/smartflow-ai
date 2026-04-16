@@ -1,6 +1,8 @@
 // SmartFlow AI - Crowd Simulation Engine
 // Generates realistic, real-time stadium crowd & queue data
 
+import { writeCrowdData } from '../services/firestoreService';
+
 export const ZONES = {
   GATE_A: { id: 'GATE_A', name: 'Gate A - Main Entry', type: 'entry', x: 50, y: 10 },
   GATE_B: { id: 'GATE_B', name: 'Gate B - East Entry', type: 'entry', x: 85, y: 40 },
@@ -89,7 +91,11 @@ export function subscribe(cb) {
 }
 
 function notify() {
-  subscribers.forEach(cb => cb(getSnapshot()));
+  const snapshot = getSnapshot();
+  subscribers.forEach(cb => cb(snapshot));
+  
+  // Write to Firestore for real-time synchronization
+  writeCrowdData(snapshot).catch(() => {});
 }
 
 export function getSnapshot() {
@@ -153,7 +159,7 @@ export function tick() {
 }
 
 // AI Recommendation Engine
-export function getRecommendations(userZone = 'STAND_N', userPrefs = {}) {
+export function getRecommendations(userZone = 'STAND_N') {
   const recs = [];
 
   // Best food court
