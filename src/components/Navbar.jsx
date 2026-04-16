@@ -5,13 +5,13 @@ import AdminLoginModal from './AdminLoginModal';
 import '../styles/navbar.css';
 
 const PHASE_STYLES = {
-  PRE_MATCH:  { label: 'Pre-Match',  class: 'badge-blue' },
-  MATCH:      { label: 'Live Match', class: 'badge-green' },
-  HALF_TIME:  { label: 'Half Time',  class: 'badge-yellow' },
+  PRE_MATCH: { label: 'Pre-Match', class: 'badge-blue' },
+  MATCH: { label: 'Live Match', class: 'badge-green' },
+  HALF_TIME: { label: 'Half Time', class: 'badge-yellow' },
   POST_MATCH: { label: 'Post-Match', class: 'badge-purple' },
 };
 
-export default function Navbar({ activeView, onViewChange, data }) {
+export default function Navbar({ data }) {
   const alerts = data?.alerts || [];
   const phase = data?.eventPhase || 'PRE_MATCH';
   const ps = PHASE_STYLES[phase] || PHASE_STYLES.PRE_MATCH;
@@ -21,27 +21,14 @@ export default function Navbar({ activeView, onViewChange, data }) {
   const { isAdmin, userEmail, logout, loading } = useAuth();
 
   const handleViewToggle = () => {
-    if (activeView === 'attendee') {
-      // Trying to go to admin
-      if (isAdmin) {
-        onViewChange('admin');
-      } else {
-        setShowLoginModal(true);
-      }
-    } else {
-      // Going back to attendee
-      onViewChange('attendee');
+    if (!isAdmin) {
+      setShowLoginModal(true);
     }
   };
 
-  const handleLoginSuccess = () => {
-    onViewChange('admin');
-  };
+  const handleLoginSuccess = () => {};
 
   const handleLogout = async () => {
-    if (activeView === 'admin') {
-      onViewChange('attendee');
-    }
     await logout();
   };
 
@@ -66,23 +53,15 @@ export default function Navbar({ activeView, onViewChange, data }) {
             {ps.label}
           </span>
 
-          {/* View Toggle / Admin Portal button */}
-          <button 
+          <button
             className="btn btn-ghost btn-sm"
             onClick={handleViewToggle}
             style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            {activeView === 'attendee' ? (
-              <>
-                <Shield size={14} />
-                Admin Portal
-              </>
-            ) : (
-              '🏟️ Attendee App'
-            )}
+            <Shield size={14} />
+            Admin Portal
           </button>
 
-          {/* Admin Badge / Logout */}
           {isAdmin && (
             <div className="admin-auth-badge">
               <div className="admin-auth-info">
@@ -101,18 +80,16 @@ export default function Navbar({ activeView, onViewChange, data }) {
             </div>
           )}
 
-          {/* Anonymous User Badge (subtle) */}
           {!isAdmin && !loading && (
-            <div className="attendee-auth-badge" title={`Signed in anonymously`}>
+            <div className="attendee-auth-badge" title="Signed in as attendee">
               <User size={13} />
             </div>
           )}
 
-          {/* Alerts Bell */}
           <div style={{ position: 'relative' }}>
             <button
               className="alert-btn"
-              onClick={() => setShowAlerts(v => !v)}
+              onClick={() => setShowAlerts((value) => !value)}
               title="View alerts"
             >
               <Bell size={18} />
@@ -122,23 +99,41 @@ export default function Navbar({ activeView, onViewChange, data }) {
             </button>
 
             {showAlerts && (
-              <div style={{
-                position: 'absolute', right: 0, top: 48, width: 300,
-                background: 'var(--bg-card)', border: '1px solid var(--border-medium)',
-                borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)',
-                zIndex: 300, padding: 12, animation: 'slideInDown 0.2s ease',
-              }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 48,
+                  width: 300,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-medium)',
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 300,
+                  padding: 12,
+                  animation: 'slideInDown 0.2s ease',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)',
+                    marginBottom: 8,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                  }}
+                >
                   Active Alerts
                 </div>
                 {alerts.length === 0 ? (
                   <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', padding: '8px 0' }}>
-                    ✅ No alerts at this time
+                    No alerts at this time.
                   </div>
                 ) : (
-                  alerts.map((a, i) => (
-                    <div key={i} className={`alert-banner ${a.severity}`} style={{ marginBottom: 6 }}>
-                      {a.severity === 'critical' ? '🔴' : '🟡'} {a.message}
+                  alerts.map((alert, index) => (
+                    <div key={index} className={`alert-banner ${alert.severity}`} style={{ marginBottom: 6 }}>
+                      {alert.message}
                     </div>
                   ))
                 )}
@@ -148,7 +143,6 @@ export default function Navbar({ activeView, onViewChange, data }) {
         </div>
       </nav>
 
-      {/* Admin Login Modal */}
       {showLoginModal && (
         <AdminLoginModal
           onClose={() => setShowLoginModal(false)}

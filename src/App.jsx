@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import { useSimulation } from './hooks/useSimulation';
@@ -11,17 +11,14 @@ const AttendeePage = lazy(() => import('./pages/AttendeePage'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 function AppInner() {
-  const [activeView, setActiveView] = useState('attendee');
   const { isAdmin } = useAuth();
   const data = useSimulation(2000);
-  const safeActiveView = activeView === 'admin' && !isAdmin ? 'attendee' : activeView;
+  const safeActiveView = isAdmin ? 'admin' : 'attendee';
 
   return (
     <div className="app-root">
       <div className="bg-mesh" />
       <Navbar
-        activeView={safeActiveView}
-        onViewChange={setActiveView}
         data={data}
       />
       <main style={{ position: 'relative', zIndex: 1 }} key={safeActiveView} className="animate-fadeIn">
