@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import OrderManagement from '../components/OrderManagement';
+import { DEFAULT_VENUE, VENUES } from '../data/venues';
 import StadiumMap from '../components/StadiumMap';
 import { ZONES, triggerEmergency } from '../engine/simulationEngine';
-import { useFirestoreCrowdData } from '../hooks/useFirestore';
+import { useActiveVenueSync, useFirestoreCrowdData } from '../hooks/useFirestore';
 import { createVenueUpdate } from '../services/firestoreService';
 
 function getDensityColor(density) {
@@ -90,6 +91,7 @@ export default function AdminDashboard({ data }) {
   const alerts = data?.alerts || [];
   const stats = data?.stats || {};
   const { crowdData } = useFirestoreCrowdData();
+  const { activeVenue, updateActiveVenue } = useActiveVenueSync(DEFAULT_VENUE);
 
   const displayZones = crowdData?.zones || zones;
   const displayPhase = crowdData?.eventPhase || phase;
@@ -100,6 +102,13 @@ export default function AdminDashboard({ data }) {
   const [broadcastSent, setBroadcastSent] = useState(false);
   const [deployedZones, setDeployedZones] = useState({});
   const [toast, setToast] = useState(null);
+  const [selectedVenueId, setSelectedVenueId] = useState(DEFAULT_VENUE.id);
+
+  useEffect(() => {
+    if (activeVenue?.id) {
+      setSelectedVenueId(activeVenue.id);
+    }
+  }, [activeVenue]);
 
   useEffect(() => {
     if (!toast) return;
@@ -157,6 +166,20 @@ export default function AdminDashboard({ data }) {
     showToast(`Deployment logged for ${zoneName}.`);
   };
 
+  const handleSetActiveVenue = async () => {
+    const venue = VENUES.find((item) => item.id === selectedVenueId);
+    if (!venue) return;
+
+    await updateActiveVenue(venue);
+    createVenueUpdate({
+      title: 'Active venue switched',
+      message: `${venue.name} is now the active venue context across attendee dashboards.`,
+      severity: 'info',
+      source: 'admin',
+    });
+    showToast(`Active venue synced: ${venue.name}`);
+  };
+
   return (
     <div className="admin-root">
       {toast && (
@@ -181,6 +204,38 @@ export default function AdminDashboard({ data }) {
           <button className="btn btn-ghost" onClick={handleExport}>
             Export Ops Report
           </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div className="section-title">Active Venue Sync</div>
+            <div className="section-subtitle">Set once from admin and all attendee venue panels update in real time.</div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <select
+              value={selectedVenueId}
+              onChange={(event) => setSelectedVenueId(event.target.value)}
+              style={{
+                minWidth: 260,
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-medium)',
+                borderRadius: 'var(--radius-md)',
+                padding: '9px 10px',
+              }}
+            >
+              {VENUES.map((venue) => (
+                <option key={venue.id} value={venue.id}>{venue.name}</option>
+              ))}
+            </select>
+
+            <button className="btn btn-primary btn-sm" onClick={handleSetActiveVenue}>
+              Sync Venue
+            </button>
+          </div>
         </div>
       </div>
 

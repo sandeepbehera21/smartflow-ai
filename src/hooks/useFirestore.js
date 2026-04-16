@@ -1,6 +1,13 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from 'react';
-import { listenToCrowdData, listenToAttendeeOrders, listenToActiveOrders, listenToVenueUpdates } from '../services/firestoreService';
+import {
+  listenToCrowdData,
+  listenToAttendeeOrders,
+  listenToActiveOrders,
+  listenToVenueUpdates,
+  listenToActiveVenue,
+  setActiveVenue,
+} from '../services/firestoreService';
 
 /**
  * Hook to listen to real-time crowd data from Firestore
@@ -154,4 +161,23 @@ export function useVenueUpdates() {
   }, []);
 
   return updates;
+}
+
+export function useActiveVenueSync(defaultVenue) {
+  const [activeVenue, setActiveVenueState] = useState(defaultVenue || null);
+
+  useEffect(() => {
+    const unsubscribe = listenToActiveVenue((venue) => {
+      if (venue) setActiveVenueState(venue);
+    });
+    return unsubscribe;
+  }, []);
+
+  const updateActiveVenue = async (venue) => {
+    const saved = await setActiveVenue(venue);
+    setActiveVenueState(saved);
+    return saved;
+  };
+
+  return { activeVenue, updateActiveVenue };
 }

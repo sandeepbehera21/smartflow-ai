@@ -20,7 +20,11 @@ const PUBLIC_CROWD_DOC = ['publicData', 'currentCrowdState'];
 const LOCAL_ORDERS_KEY = 'smartflow_orders';
 const LOCAL_CROWD_KEY = 'smartflow_crowd';
 const LOCAL_VENUE_UPDATES_KEY = 'smartflow_venue_updates';
+const LOCAL_ACTIVE_VENUE_KEY = 'smartflow_active_venue';
 const ACTIVE_ORDER_STATUSES = ['PENDING', 'PREPARING', 'READY'];
+const ORDER_STATUS_ALLOWED = ['PENDING', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'];
+const VENUE_SEVERITY_ALLOWED = ['info', 'warning', 'critical'];
+const ACTIVE_VENUE_DOC = ['publicData', 'activeVenue'];
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || 'admin@smartflow.ai,sandeep@smartflow.ai')
   .split(',')
   .map((value) => value.trim().toLowerCase())
@@ -46,6 +50,58 @@ function warnOnce(key, message, detail) {
 function isCurrentUserAdmin() {
   const email = getCurrentUser()?.email?.toLowerCase();
   return Boolean(email) && ADMIN_EMAILS.includes(email);
+}
+
+function sanitizeText(value, maxLength = 220) {
+  return String(value || '')
+    .replace(/[<>]/g, '')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function normalizeOrderStatus(value) {
+  const status = sanitizeText(value, 20).toUpperCase();
+  if (!ORDER_STATUS_ALLOWED.includes(status)) {
+    throw new Error(`Invalid order status: ${value}`);
+  }
+  return status;
+}
+
+function validateOrderPayload(orderData) {
+  if (!orderData || !Array.isArray(orderData.items) || orderData.items.length === 0) {
+    throw new Error('Order must include at least one item.');
+  }
+
+  const normalizedItems = orderData.items.slice(0, 30).map((item) => ({
+    id: sanitizeText(item?.id, 40),
+    name: sanitizeText(item?.name, 120),
+    qty: Math.max(1, Math.min(99, Number(item?.qty || 1))),
+    price: Math.max(0, Number(item?.price || 0)),
+    emoji: sanitizeText(item?.emoji, 10),
+  }));
+
+  return {
+    items: normalizedItems,
+    foodCourt: sanitizeText(orderData.foodCourt, 80),
+    totalPrice: Math.max(0, Number(orderData.totalPrice || 0)),
+    estimatedTime: Math.max(0, Math.min(180, Number(orderData.estimatedTime || 0))),
+    notes: sanitizeText(orderData.notes || '', 240),
+  };
+}
+
+function validateVenuePayload(venueData) {
+  const safeId = sanitizeText(venueData?.id, 60);
+  const safeName = sanitizeText(venueData?.name, 140);
+  if (!safeId || !safeName) {
+    throw new Error('Venue payload must include id and name.');
+  }
+
+  return {
+    ...venueData,
+    id: safeId,
+    name: safeName,
+    city: sanitizeText(venueData?.city, 140),
+  };
 }
 
 function generateAttendeeId() {
@@ -130,6 +186,23 @@ function emitVenueUpdatesChange() {
       console.error(error);
     }
   });
+}
+
+function getLocalActiveVenue() {
+  try {
+    const raw = localStorage.getItem(LOCAL_ACTIVE_VENUE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalActiveVenue(venue) {
+  try {
+    localStorage.setItem(LOCAL_ACTIVE_VENUE_KEY, JSON.stringify(venue));
+  } catch (error) {
+    console.error('Error saving active venue to localStorage:', error);
+  }
 }
 
 async function checkFirestoreConnection() {
@@ -248,20 +321,21 @@ export async function getCurrentCrowdState() {
 }
 
 export async function createFoodOrder(orderData) {
+  const safeOrderData = validateOrderPayload(orderData);
   const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   const attendeeId = orderData.attendeeId || getCurrentAttendeeId();
 
   const order = {
     orderId,
     attendeeId,
-    items: orderData.items,
-    foodCourt: orderData.foodCourt,
-    totalPrice: orderData.totalPrice,
-    estimatedTime: orderData.estimatedTime,
+    items: safeOrderData.items,
+    foodCourt: safeOrderData.foodCourt,
+    totalPrice: safeOrderData.totalPrice,
+    estimatedTime: safeOrderData.estimatedTime,
     status: 'PENDING',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    notes: orderData.notes || '',
+    notes: safeOrderData.notes,
   };
 
   const localOrders = getLocalOrders();
@@ -290,10 +364,16 @@ export async function updateOrderStatus(orderId, newStatus) {
     throw new Error('Only admins can update order status.');
   }
 
+  const normalizedStatus = normalizeOrderStatus(newStatus);
+  const safeOrderId = sanitizeText(orderId, 80);
+  if (!safeOrderId) {
+    throw new Error('Order ID is required.');
+  }
+
   const localOrders = getLocalOrders();
-  const index = localOrders.findIndex((order) => order.orderId === orderId || order.id === orderId);
+  const index = localOrders.findIndex((order) => order.orderId === safeOrderId || order.id === safeOrderId);
   if (index !== -1) {
-    localOrders[index].status = newStatus;
+    localOrders[index].status = normalizedStatus;
     localOrders[index].updatedAt = new Date().toISOString();
     saveLocalOrders(localOrders);
     emitOrdersChange();
@@ -301,9 +381,9 @@ export async function updateOrderStatus(orderId, newStatus) {
 
   if (db && firestoreAvailable !== false) {
     try {
-      const orderRef = doc(db, 'orders', orderId);
+      const orderRef = doc(db, 'orders', safeOrderId);
       await updateDoc(orderRef, {
-        status: newStatus,
+        status: normalizedStatus,
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
@@ -535,13 +615,19 @@ export async function clearAttendeeLocation(attendeeId = getCurrentAttendeeId())
 }
 
 export function createVenueUpdate(update) {
+  if (!isCurrentUserAdmin()) {
+    throw new Error('Only admins can create venue updates.');
+  }
+
+  const severity = sanitizeText(update?.severity || 'info', 20).toLowerCase();
+  const safeSeverity = VENUE_SEVERITY_ALLOWED.includes(severity) ? severity : 'info';
   const nextUpdate = {
-    id: update.id || `venue_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    title: update.title,
-    message: update.message,
-    severity: update.severity || 'info',
+    id: sanitizeText(update?.id, 80) || `venue_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    title: sanitizeText(update?.title, 140),
+    message: sanitizeText(update?.message, 320),
+    severity: safeSeverity,
     timestamp: new Date().toISOString(),
-    source: update.source || 'ops',
+    source: sanitizeText(update?.source || 'ops', 40),
   };
 
   const updates = [nextUpdate, ...getLocalVenueUpdates()].slice(0, 12);
@@ -566,4 +652,70 @@ export function listenToVenueUpdates(callback) {
     listeners.venueUpdates.delete(callback);
     window.removeEventListener('storage', onStorage);
   };
+}
+
+export async function setActiveVenue(venueData) {
+  if (!isCurrentUserAdmin()) {
+    throw new Error('Only admins can set active venue.');
+  }
+
+  const safeVenueData = validateVenuePayload(venueData);
+  const payload = {
+    ...safeVenueData,
+    updatedAt: new Date().toISOString(),
+    updatedBy: getCurrentUser()?.email || 'local-operator',
+  };
+
+  saveLocalActiveVenue(payload);
+
+  if (db && firestoreAvailable !== false) {
+    try {
+      const venueRef = doc(db, ...ACTIVE_VENUE_DOC);
+      await setDoc(venueRef, {
+        ...payload,
+        timestamp: serverTimestamp(),
+      }, { merge: true });
+    } catch (error) {
+      warnOnce('firestore-active-venue-write', 'Active venue sync failed. Keeping local active venue.', error.message);
+      firestoreAvailable = false;
+    }
+  }
+
+  return payload;
+}
+
+export function listenToActiveVenue(callback) {
+  const local = getLocalActiveVenue();
+  if (local) {
+    callback(local);
+  }
+
+  if (!db || firestoreAvailable === false) {
+    const onStorage = (event) => {
+      if (event.key === LOCAL_ACTIVE_VENUE_KEY) {
+        const venue = getLocalActiveVenue();
+        if (venue) callback(venue);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }
+
+  try {
+    const venueRef = doc(db, ...ACTIVE_VENUE_DOC);
+    const unsubscribe = onSnapshot(venueRef, (docSnap) => {
+      if (!docSnap.exists()) return;
+      const data = docSnap.data();
+      saveLocalActiveVenue(data);
+      callback(data);
+    }, (error) => {
+      warnOnce('firestore-active-venue-read', 'Active venue listener failed. Using local active venue.', error.message);
+      firestoreAvailable = false;
+    });
+
+    return () => unsubscribe();
+  } catch {
+    firestoreAvailable = false;
+    return () => {};
+  }
 }

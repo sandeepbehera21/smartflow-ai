@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import React from 'react';
+import { useMemo, useState } from 'react';
 import Chatbot from '../components/Chatbot';
 import OrderModal from '../components/OrderModal';
 import OrderTracker from '../components/OrderTracker';
 import QueueManager from '../components/QueueManager';
 import Recommendations from '../components/Recommendations';
 import StadiumMap from '../components/StadiumMap';
-import { useFirestoreCrowdData, useVenueUpdates } from '../hooks/useFirestore';
+import { DEFAULT_VENUE, VENUES } from '../data/venues';
+import { useActiveVenueSync, useFirestoreCrowdData, useVenueUpdates } from '../hooks/useFirestore';
 
 const PHASE_LABELS = {
   PRE_MATCH: 'Match starts in ~30 min',
@@ -16,12 +18,26 @@ const PHASE_LABELS = {
 
 const LANGUAGES = ['GB EN', 'ES ES', 'FR FR', 'DE DE', 'JA JP', 'BR PT'];
 
+const FEATURE_SIDEBAR = [
+  'Live Stadium Map',
+  'Queue Intelligence',
+  'AI Picks',
+  'My Orders',
+];
+
+const STANDS = ['North Stand', 'East Stand', 'West Stand', 'South Stand', 'VIP Box'];
+
 export default function AttendeePage({ data }) {
-  const [tab, setTab] = useState('queues');
+  const [tab, setTab] = useState('map');
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedLang, setSelectedLang] = useState('GB EN');
+  const [setupStep, setSetupStep] = useState('select');
+  const [venueSearch, setVenueSearch] = useState('');
+  const [selectedVenue, setSelectedVenue] = useState(DEFAULT_VENUE);
+  const [seatInfo, setSeatInfo] = useState({ stand: STANDS[0], row: 'A', seat: '12' });
   const { crowdData } = useFirestoreCrowdData();
   const venueUpdates = useVenueUpdates();
+  const { activeVenue: syncedVenue } = useActiveVenueSync(DEFAULT_VENUE);
 
   const zones = crowdData?.zones || data?.zones || {};
   const phase = crowdData?.eventPhase || data?.eventPhase || 'PRE_MATCH';
@@ -32,6 +48,149 @@ export default function AttendeePage({ data }) {
   const maxWait = Math.max(0, ...Object.values(zones).map((zone) => zone.waitTime || 0));
   const latestVenueUpdate = venueUpdates[0];
 
+  const filteredVenues = useMemo(() => {
+    if (!venueSearch.trim()) return VENUES;
+    const q = venueSearch.trim().toLowerCase();
+    return VENUES.filter((venue) => venue.name.toLowerCase().includes(q) || venue.city.toLowerCase().includes(q));
+  }, [venueSearch]);
+
+  const selectedVenueMapSrc = `https://www.google.com/maps?q=${encodeURIComponent(`${selectedVenue.name}, ${selectedVenue.city}`)}&output=embed`;
+
+  const openDashboard = () => {
+    if (!seatInfo.row.trim() || !seatInfo.seat.trim()) return;
+    setSetupStep('dashboard');
+    setTab('map');
+  };
+
+  const resetSetup = () => {
+    if (syncedVenue?.id) {
+      setSelectedVenue(syncedVenue);
+    }
+    setSetupStep('select');
+  };
+
+  if (setupStep !== 'dashboard') {
+    return (
+      <div className="attendee-root">
+        <div className="attendee-setup-shell">
+          <aside className="attendee-feature-sidebar card" aria-label="Feature Sidebar">
+            <div className="attendee-feature-title">Feature Sidebar</div>
+            <div className="attendee-feature-list">
+              {FEATURE_SIDEBAR.map((item) => (
+                <div key={item} className="attendee-feature-item">{item}</div>
+              ))}
+            </div>
+            <div className="attendee-feature-note">
+              Step 1: Select Stadium
+              <br />
+              Step 2: Book Seat
+              <br />
+              Step 3: Open Live Dashboard
+            </div>
+          </aside>
+
+          <section className="card attendee-setup-main">
+            {setupStep === 'select' && (
+              <>
+                <div className="section-title">Select Stadium</div>
+                <div className="section-subtitle">Choose your venue first, then continue to seat booking.</div>
+                <div style={{ marginTop: 14 }}>
+                  <input
+                    className="venue-explorer-search"
+                    placeholder="Search stadium or city"
+                    aria-label="Search stadium"
+                    value={venueSearch}
+                    onChange={(event) => setVenueSearch(event.target.value)}
+                  />
+                </div>
+                <div className="venue-select-grid" style={{ marginTop: 14 }}>
+                  {filteredVenues.map((venue) => (
+                    <button
+                      key={venue.id}
+                      type="button"
+                      className="venue-select-card"
+                      aria-label={`Select ${venue.name}`}
+                      onClick={() => {
+                        setSelectedVenue(venue);
+                        setSetupStep('seat');
+                      }}
+                    >
+                      <div className="venue-item-name">{venue.name}</div>
+                      <div className="venue-item-city">{venue.city}</div>
+                      <div className="venue-item-link">Select Stadium</div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {setupStep === 'seat' && (
+              <>
+                <div className="section-title">Book Your Seat</div>
+                <div className="section-subtitle">Stadium selected: {selectedVenue.name}</div>
+
+                <div className="attendee-stadium-photo-wrap" style={{ marginTop: 14 }}>
+                  <iframe
+                    title={`Map preview ${selectedVenue.name}`}
+                    src={selectedVenueMapSrc}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="attendee-stadium-photo"
+                  />
+                  <div className="attendee-stadium-photo-overlay">
+                    <div className="attendee-stadium-photo-name">{selectedVenue.name}</div>
+                    <div className="attendee-stadium-photo-city">{selectedVenue.city}</div>
+                  </div>
+                </div>
+
+                <div className="attendee-seat-grid">
+                  <label className="attendee-seat-field" htmlFor="seat-stand">
+                    <span>Stand</span>
+                    <select
+                      id="seat-stand"
+                      value={seatInfo.stand}
+                      onChange={(event) => setSeatInfo((prev) => ({ ...prev, stand: event.target.value }))}
+                    >
+                      {STANDS.map((stand) => <option key={stand} value={stand}>{stand}</option>)}
+                    </select>
+                  </label>
+
+                  <label className="attendee-seat-field" htmlFor="seat-row">
+                    <span>Row</span>
+                    <input
+                      id="seat-row"
+                      aria-label="Seat row"
+                      value={seatInfo.row}
+                      onChange={(event) => setSeatInfo((prev) => ({ ...prev, row: event.target.value.toUpperCase() }))}
+                      maxLength={3}
+                    />
+                  </label>
+
+                  <label className="attendee-seat-field" htmlFor="seat-number">
+                    <span>Seat Number</span>
+                    <input
+                      id="seat-number"
+                      aria-label="Seat number"
+                      value={seatInfo.seat}
+                      onChange={(event) => setSeatInfo((prev) => ({ ...prev, seat: event.target.value }))}
+                      maxLength={4}
+                    />
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                  <button className="btn btn-ghost" onClick={() => setSetupStep('select')} aria-label="Go back to stadium selection">Back</button>
+                  <button className="btn btn-primary" onClick={openDashboard} aria-label="Confirm seat and open dashboard">Confirm Seat and Continue</button>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+        <Chatbot />
+      </div>
+    );
+  }
+
   return (
     <div className="attendee-root">
       <div className="attendee-hero">
@@ -39,7 +198,7 @@ export default function AttendeePage({ data }) {
         <div className="attendee-hero-inner">
           <div className="attendee-hero-text">
             <div className="attendee-hero-label">WELCOME TO SMARTFLOW AI</div>
-            <h1 className="attendee-hero-title">Arena Championship 2025</h1>
+            <h1 className="attendee-hero-title">{selectedVenue.name}</h1>
             <div className="attendee-hero-phase">{PHASE_LABELS[phase]}</div>
           </div>
           <div className="attendee-hero-stats">
@@ -90,6 +249,46 @@ export default function AttendeePage({ data }) {
         </div>
       </div>
 
+      <div className="card attendee-selected-stadium-card" style={{ marginBottom: 24 }}>
+        <div className="attendee-selected-stadium-grid">
+          <iframe
+            title={`Selected venue map ${selectedVenue.name}`}
+            src={selectedVenueMapSrc}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="attendee-stadium-photo"
+          />
+          <div>
+            <div className="section-title">Selected Stadium</div>
+            <div className="section-subtitle">{selectedVenue.name} - {selectedVenue.city}</div>
+            <div style={{ marginTop: 8, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Seat: {seatInfo.stand}, Row {seatInfo.row}, Seat {seatInfo.seat}
+            </div>
+            <div className="attendee-tabs" style={{ marginTop: 14 }}>
+              {[
+                { id: 'map', label: 'Live Stadium Map' },
+                { id: 'queues', label: 'Queue Intelligence' },
+                { id: 'ai', label: 'AI Picks' },
+                { id: 'orders', label: 'My Orders' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setTab(item.id)}
+                  className={`attendee-tab ${tab === item.id ? 'active' : ''}`}
+                  aria-label={item.label}
+                  aria-pressed={tab === item.id}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <button className="btn btn-ghost btn-sm" onClick={resetSetup}>Change Stadium / Seat</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {alerts.length > 0 && (
         <div className="attendee-alerts-row">
           {alerts.slice(0, 4).map((alert, index) => (
@@ -100,17 +299,7 @@ export default function AttendeePage({ data }) {
         </div>
       )}
 
-      <div className="attendee-grid">
-        <div className="attendee-map-col">
-          <div className="card attendee-map-card">
-            <div style={{ marginBottom: 12 }}>
-              <div className="section-title">Live Stadium Map</div>
-              <div className="section-subtitle">Hover any zone for real-time details</div>
-            </div>
-            <StadiumMap zones={zones} />
-          </div>
-        </div>
-
+      <div className="attendee-grid" style={{ gridTemplateColumns: '1fr' }}>
         <div className="attendee-right-col">
           {latestVenueUpdate && (
             <div className="card" style={{ marginBottom: 16, border: '1px solid rgba(96,165,250,0.25)' }}>
@@ -124,23 +313,17 @@ export default function AttendeePage({ data }) {
             </div>
           )}
 
-          <div className="attendee-tabs">
-            {[
-              { id: 'queues', label: 'Queue Intelligence' },
-              { id: 'ai', label: 'AI Picks' },
-              { id: 'orders', label: 'My Orders' },
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setTab(item.id)}
-                className={`attendee-tab ${tab === item.id ? 'active' : ''}`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
           <div className="animate-fadeIn" key={tab}>
+            {tab === 'map' && (
+              <div className="card attendee-map-card">
+                <div style={{ marginBottom: 12 }}>
+                  <div className="section-title">Live Stadium Map</div>
+                  <div className="section-subtitle">Hover any zone for real-time details</div>
+                </div>
+                <StadiumMap zones={zones} />
+              </div>
+            )}
+
             {tab === 'queues' && (
               <div>
                 <div style={{ marginBottom: 12 }}>

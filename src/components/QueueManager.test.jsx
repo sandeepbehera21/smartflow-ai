@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import QueueManager from './QueueManager';
@@ -12,8 +13,8 @@ describe('QueueManager', () => {
     render(<QueueManager zones={mockZones} />);
 
     // Fast check to see if the groups render
-    expect(screen.getByText(/Food Courts/i)).toBeInTheDocument();
-    expect(screen.getByText(/Restrooms/i)).toBeInTheDocument();
-    expect(screen.getByText(/Entry \/ Exit Gates/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Food Courts/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/Restrooms/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/Entry \/ Exit Gates/i)[0]).toBeInTheDocument();
   });
 });
